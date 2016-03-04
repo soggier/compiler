@@ -99,7 +99,48 @@ public class DeepFileChanger {
 			int indexOfNewLine = fileContent.lastIndexOf("\n", indexOfKey);
 			int indexOfEndToken = fileContent.indexOf(";", indexOfKey);
 			if (indexOfComment < indexOfNewLine) {
-				fileContent.replace(indexOfKey, indexOfEndToken + 1, "");
+				int statementStart = indexOfKey;
+				int statementEnd = indexOfEndToken + 1;
+				// cleanup whole line/statement
+				for (; statementStart > 0; --statementStart) {
+					boolean atStart = false;
+
+					char c = fileContent.charAt(statementStart - 1);
+					switch (c) {
+					case ' ':
+					case '\t':
+						break;
+					case '\r':
+					case '\n':
+					case ';':
+					default:
+						atStart = true;
+						break;
+					}
+
+					if (atStart)
+						break;
+				}
+				for (; statementEnd < fileContent.length(); ++statementEnd) {
+					boolean atEnd = false;
+
+					char c = fileContent.charAt(statementEnd);
+					switch (c) {
+					case ' ':
+					case '\t':
+					case '\r':
+					case '\n':
+						break;
+					default:
+						atEnd = true;
+						break;
+					}
+
+					if (atEnd)
+						break;
+				}
+
+				fileContent.replace(statementStart, statementEnd, "");
 				return;
 			} else { // its a comment
 				start = indexOfKey + 1;
