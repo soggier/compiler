@@ -225,11 +225,9 @@ public class Configuration implements ICclassFileConsts {
 				names.add(s);
 			}
 		}
-		if (found) {
-			Object[] o = names.toArray();
-			return (Arrays.copyOf(o, o.length, String[][].class)); 
-		}
-		return new String[][] {{"not available", "not available"}};
+		if (found)
+			return names.toArray(new String[names.size()][]);
+		return null;
 	}
 
 	public static void setCompilerConstants(SystemConstant constants) {

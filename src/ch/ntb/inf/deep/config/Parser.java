@@ -29,6 +29,8 @@ import ch.ntb.inf.deep.classItems.ICclassFileConsts;
 import ch.ntb.inf.deep.classItems.Item;
 import ch.ntb.inf.deep.classItems.Method;
 import ch.ntb.inf.deep.classItems.RefType;
+import ch.ntb.inf.deep.eclipse.DeepPlugin;
+import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
 import ch.ntb.inf.deep.classItems.Class;
 import ch.ntb.inf.deep.host.ErrorReporter;
 import ch.ntb.inf.deep.host.StdStreams;
@@ -253,7 +255,7 @@ public class Parser implements ICclassFileConsts {
 	}
 
 	public String[] parse(int specSym) {
-		String[] str = new String[]{"not available", "not available"};
+		String[] str = new String[2];
 		try {
 			next(); // read first symbol
 			if (reporter.nofErrors <= 0) meta();
@@ -1591,6 +1593,13 @@ public class Parser implements ICclassFileConsts {
 			}
 			StdStreams.vrb.println("\"");
 		}
+
+		//if libpath is empty or absent, use the workspace default
+		if(libPath.length == 0)
+			libPath = new HString[]{
+					HString.getHString(DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH))
+			};
+
 		Configuration.getActiveProject().createLibs(libPath);
 		while (sym == sRootclasses || sym == sBoardType || sym == sOsType	|| sym == sProgrammerType || sym == sProgrammerOpts || sym == sTctFile || sym == sImgFile || sym == sImgFormat) {
 			if (sym == sRootclasses) {

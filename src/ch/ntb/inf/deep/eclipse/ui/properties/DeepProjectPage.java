@@ -56,7 +56,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 	
 	private final String defaultPath = DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
 	private Combo boardCombo, programmerCombo, osCombo, imgFormatCombo;
-	private Button check, browse, checkImg, browseImg;
+	private Button checkDefaultLibPath, browse, checkImg, browseImg;
 	private Text path, pathImg;
 	private int indexImgFormat;
 	private final String defaultImgPath = "";
@@ -65,7 +65,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 	private String lastChoice = "", lastImgFormatChoice = "";
 	private IEclipsePreferences pref;
 	private Label libState;
-	private String libPath, board, programmer, os, rootclasses, imglocation, imgformat;
+	private String projectSpecificLibPath, board, programmer, os, rootclasses, imglocation, imgformat;
 	String[][] boards, programmers, osys, imgformats;
 	private DeepFileChanger dfc;
 	
@@ -75,15 +75,16 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		IProject project = (IProject) getElement().getAdapter(IProject.class);
 		dfc = new DeepFileChanger(project.getLocation()	+ "/" + project.getName() + ".deep");
 
-		libPath = dfc.getContent("libpath");
-		if (!libPath.equals("not available")) libPath = libPath.substring(1, libPath.length()-1);
+		projectSpecificLibPath = dfc.getContent("libpath");
+		if (projectSpecificLibPath != null && projectSpecificLibPath.length() >= 2)
+			projectSpecificLibPath = projectSpecificLibPath.substring(1, projectSpecificLibPath.length()-1);
 		board = dfc.getContent("boardtype");
 		programmer = dfc.getContent("programmertype");
 		os = dfc.getContent("ostype");
 		rootclasses = dfc.getContent("rootclasses");
 		imglocation = dfc.getContent("imgfile");
 		imgformat = dfc.getContent("imgformat");
-		if(imglocation.equalsIgnoreCase("not available") && imgformat.equalsIgnoreCase("not available")){
+		if(imglocation == null && imgformat == null){
 			createImgFile = false;
 			lastImgPathChoice = project.getLocation().toString();
 			lastImgPathChoice = lastImgPathChoice.replace('/', '\\');
@@ -126,36 +127,37 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		label1.setLayoutData(gridData);
 		Label dummy = new Label(groupLib, SWT.NONE);
 		dummy.setLayoutData(gridData);
-		check = new Button(groupLib, SWT.CHECK);
-		check.setText("Use default library path");
-		check.setSelection(libPath.equals(defaultPath));
-		check.addSelectionListener(new SelectionAdapter() {
+		checkDefaultLibPath = new Button(groupLib, SWT.CHECK);
+		checkDefaultLibPath.setText("Use default library path");
+		checkDefaultLibPath.setSelection(projectSpecificLibPath == null);
+		checkDefaultLibPath.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				if (e.widget.equals(check)) {
-					if (check.getSelection()) {
+				if (e.widget.equals(checkDefaultLibPath)) {
+					if (checkDefaultLibPath.getSelection()) {
 						path.setEnabled(false);
 						path.setText(defaultPath);
+						projectSpecificLibPath = null;//implies default
 					}
 					else {
 						path.setEnabled(true);
 						path.setText(lastChoice);
+						projectSpecificLibPath = path.getText();
 					}
-					libPath = path.getText();
 					if (checkLibPath()) readLib();
 				}
 			}
 		});
-		check.setLayoutData(gridData);
+		checkDefaultLibPath.setLayoutData(gridData);
 		path = new Text(groupLib, SWT.SINGLE | SWT.BORDER);
 		GridData gridData2 = new GridData();
 		gridData2.horizontalAlignment = SWT.FILL;
 		gridData2.grabExcessHorizontalSpace = true;
 		path.setLayoutData(gridData2);
-		path.setText(libPath);
-		path.setEnabled(!libPath.equals(defaultPath));
+		path.setText(getEffectiveLibPath());
+		path.setEnabled(!checkDefaultLibPath.getSelection());
 		path.addModifyListener(new ModifyListener() {
 			public void modifyText(ModifyEvent e) {
-				libPath = path.getText();
+				projectSpecificLibPath = path.getText();
 				if (checkLibPath()) readLib();
 			}
 		});
@@ -163,7 +165,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		browse.setText("Browse...");
 		browse.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				if (!check.getSelection()){	
+				if (!checkDefaultLibPath.getSelection()){	
 					openDirectoryDialog();
 					if (checkLibPath()) readLib();
 				}
@@ -298,7 +300,10 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 			imgFormatCombo.setEnabled(false);
 		}
 		
-		if (checkLibPath()) readLib(); else libPath = "not available";
+		if (checkLibPath())
+			readLib();
+		else
+			projectSpecificLibPath = null;
 		return composite;
 	}
 	
@@ -324,6 +329,8 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 	};
 
 	private void readLib() {
+		String libPath = getEffectiveLibPath();
+		
 		boards = Configuration.searchDescInConfig(new File(libPath + Configuration.boardsPath), Parser.sBoard);
 		String[] str = new String[boards.length + 1];
 		int index = boards.length;
@@ -368,12 +375,16 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		}
 		strImg[strImg.length - 1] = "none";
 		imgFormatCombo.setItems(strImg);
-		if(!lastImgFormatChoice.equalsIgnoreCase("not available")){
+		if(lastImgFormatChoice == null){
 			imgFormatCombo.select(indexImgFormat);
 		}
 		else{
 			imgFormatCombo.select(indexImg);
 		}
+	}
+
+	private String getEffectiveLibPath() {
+		return projectSpecificLibPath != null ? projectSpecificLibPath : defaultPath;
 	}
 
 	private void openDirectoryDialog() {
@@ -384,7 +395,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
         String dir = dlg.open(); // Calling open() will open and run the dialog.
         if (dir != null) {
         	path.setText(dir);
-        	libPath = dir;
+        	projectSpecificLibPath = dir;
         	lastChoice = dir;
         }
 	}
@@ -402,13 +413,15 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 	}
 
 	private boolean checkLibPath() {
+		String libPath = getEffectiveLibPath();
+		
 		File lib = new File(libPath);
 		if (!lib.exists()) {
 			libState.setText("Given library path is NOT valid target library.");
 			return false;		
 		}
 		String[][] boards = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.boardsPath), Parser.sBoard);
-		if (boards == null || boards[0][0].equals("not available")) {
+		if (boards == null) {
 			libState.setText("Given library path is NOT valid target library.");
 			return false;			
 		}
@@ -442,7 +455,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		pref.put("board", boardCombo.getText());
 		pref.put("programmer", programmerCombo.getText());
 		pref.put("os", osCombo.getText());
-		if (check.getSelection()) {
+		if (checkDefaultLibPath.getSelection()) {
 			pref.putBoolean("useDefault", true);
 			pref.put("libPath", defaultPath);
 		} else {
@@ -468,42 +481,45 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		// change deep file
 		IProject project = (IProject) getElement().getAdapter(IProject.class);
 		GregorianCalendar cal = new GregorianCalendar();
-		dfc.changeContent("version", "\"" + cal.getTime().toString() + "\"");
-		dfc.changeContent("libpath", "\"" + libPath + "\"");
-		dfc.changeContent("boardtype", board);
-		dfc.changeContent("ostype", os);
-		if(programmerCombo.getText().equals("none") && !dfc.getContent("programmertype").equalsIgnoreCase("not available")){
-			dfc.changeContent("programmertype", programmer);
+		dfc.setContent("version", "\"" + cal.getTime().toString() + "\"");
+		if(projectSpecificLibPath != null)
+			dfc.setContent("libpath", "\"" + projectSpecificLibPath + "\"");
+		else
+			dfc.removeContent("libpath");
+		dfc.setContent("boardtype", board);
+		dfc.setContent("ostype", os);
+		if(programmerCombo.getText().equals("none") && dfc.getContent("programmertype") != null){
+			dfc.setContent("programmertype", programmer);
 			dfc.commentContent("programmertype");
 		}
-		else if(programmerCombo.getText().equals("none") && dfc.getContent("programmertype").equalsIgnoreCase("not available")){
+		else if(programmerCombo.getText().equals("none") && dfc.getContent("programmertype") == null){
 		}
-		else if(dfc.getContent("programmertype").equalsIgnoreCase("not available")){
+		else if(dfc.getContent("programmertype") == null){
 			dfc.addContent("programmertype", programmer);
 		}
 		else{
-			dfc.changeContent("programmertype", programmer);
+			dfc.setContent("programmertype", programmer);
 		}
-		dfc.changeContent("rootclasses", rootclasses);
+		dfc.setContent("rootclasses", rootclasses);
 		if(createImgFile){  //add Line for imgfile
-			if(dfc.getContent("imgfile").equalsIgnoreCase("not available")){
+			if(dfc.getContent("imgfile") == null){
 				dfc.addContent("imgfile", "\"" + lastImgPathChoice + "\\" + project.getName() + "." + lastImgFormatChoice.toLowerCase() + "\"");
 			}
 			else{
-				dfc.changeContent("imgfile", "\"" + lastImgPathChoice + "\\"+ project.getName() + "." + lastImgFormatChoice.toLowerCase() + "\"");
+				dfc.setContent("imgfile", "\"" + lastImgPathChoice + "\\"+ project.getName() + "." + lastImgFormatChoice.toLowerCase() + "\"");
 			}
-			if(dfc.getContent("imgformat").equalsIgnoreCase("not available")){
+			if(dfc.getContent("imgformat") == null){
 				dfc.addContent("imgformat", lastImgFormatChoice);
 			}
 			else{
-				dfc.changeContent("imgformat", lastImgFormatChoice);
+				dfc.setContent("imgformat", lastImgFormatChoice);
 			}
 		}
 		else{ //comment imgfile lines
-			if(!dfc.getContent("imgfile").equalsIgnoreCase("not available")){
+			if(dfc.getContent("imgfile") == null){
 				dfc.commentContent("imgfile");
 			}
-			if(!dfc.getContent("imgformat").equalsIgnoreCase("not available")){
+			if(dfc.getContent("imgformat") == null){
 				dfc.commentContent("imgformat");
 			}
 		}
@@ -511,7 +527,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 
 		// change classpath file
 		DeepFileChanger cfc = new DeepFileChanger(project.getLocation() + "/.classpath");
-		cfc.changeLibPath(libPath);
+		cfc.changeLibPath(projectSpecificLibPath);
 		cfc.save();
 
 		lastChoice = path.getText();

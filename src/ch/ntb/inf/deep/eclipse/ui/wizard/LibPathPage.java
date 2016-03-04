@@ -140,7 +140,7 @@ class LibPathPage extends WizardPage {
 		}
 		((DeepProjectWizard)getWizard()).model.setLibrary(lib);
 		String[][] boards = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.boardsPath), Parser.sBoard);
-		if (boards == null || boards[0][0].equals("not available")) {
+		if (boards == null) {
 			libState.setText("Given library path is NOT valid target library.");
 			return false;			
 		}

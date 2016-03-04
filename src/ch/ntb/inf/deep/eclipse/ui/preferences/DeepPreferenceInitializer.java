@@ -27,6 +27,7 @@ public class DeepPreferenceInitializer extends AbstractPreferenceInitializer {
 	@Override
 	public void initializeDefaultPreferences() {
 		DeepPlugin.getDefault().getPreferenceStore().setDefault(PreferenceConstants.DEFAULT_LIBRARY_PATH, DeepPlugin.LIB_PATH);
+		DeepPlugin.getDefault().getPreferenceStore().setDefault(PreferenceConstants.DEFAULT_LIBPATH_USE_WORKSPACE_DEFAULT, true);
 		DeepPlugin.getDefault().getPreferenceStore().setDefault(PreferenceConstants.DEFAULT_BOARD, DeepPlugin.BOARD);
 		DeepPlugin.getDefault().getPreferenceStore().setDefault(PreferenceConstants.DEFAULT_OS, DeepPlugin.OS);
 		DeepPlugin.getDefault().getPreferenceStore().setDefault(PreferenceConstants.DEFAULT_PROGRAMMER, DeepPlugin.PROGRAMMER);
