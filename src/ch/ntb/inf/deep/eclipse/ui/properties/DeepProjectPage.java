@@ -55,18 +55,19 @@ import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
 public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyPage {
 	
 	private final String defaultPath = DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
+	private final String defaultImgPath = "";
+
 	private Combo boardCombo, programmerCombo, osCombo, imgFormatCombo;
 	private Button checkDefaultLibPath, browse, checkImg, browseImg;
 	private Text path, pathImg;
 	private int indexImgFormat;
-	private final String defaultImgPath = "";
 	private String lastImgPathChoice = defaultImgPath;
 	private boolean createImgFile = false;
-	private String lastChoice = "", lastImgFormatChoice = "";
+	private String lastChoice, lastImgFormatChoice;
 	private IEclipsePreferences pref;
 	private Label libState;
 	private String projectSpecificLibPath, board, programmer, os, rootclasses, imglocation, imgformat;
-	String[][] boards, programmers, osys, imgformats;
+	private String[][] boards, programmers, osys, imgformats;
 	private DeepFileChanger dfc;
 	
 	@Override
@@ -78,6 +79,18 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		projectSpecificLibPath = dfc.getContent("libpath");
 		if (projectSpecificLibPath != null && projectSpecificLibPath.length() >= 2)
 			projectSpecificLibPath = projectSpecificLibPath.substring(1, projectSpecificLibPath.length()-1);
+	
+		//set last choice to workspace default if that is currently selected
+		if(projectSpecificLibPath == null && lastChoice == null)
+			lastChoice = defaultPath;
+		
+		//replace null values with empty strings
+		if(lastChoice == null)
+			lastChoice = "";
+		if(lastImgFormatChoice == null)
+			lastImgFormatChoice = "";
+		
+		
 		board = dfc.getContent("boardtype");
 		programmer = dfc.getContent("programmertype");
 		os = dfc.getContent("ostype");
