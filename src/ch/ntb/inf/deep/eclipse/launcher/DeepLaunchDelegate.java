@@ -20,13 +20,15 @@ package ch.ntb.inf.deep.eclipse.launcher;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.debug.core.DebugPlugin;
@@ -34,6 +36,10 @@ import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchManager;
 import org.eclipse.debug.core.model.IDebugTarget;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.launching.JavaLaunchDelegate;
 import org.osgi.framework.Bundle;
 
@@ -56,7 +62,7 @@ public class DeepLaunchDelegate extends JavaLaunchDelegate{
 		if(!mode.equals(ILaunchManager.RUN_MODE)){
 			return;
 		}
-		
+
 		//terminate all other DebugTargets
 		ILaunchManager lm = DebugPlugin.getDefault().getLaunchManager();
 		ILaunch[] launches =lm.getLaunches();
@@ -65,7 +71,7 @@ public class DeepLaunchDelegate extends JavaLaunchDelegate{
 				launches[i].getDebugTarget().terminate();
 			}
 		}
-		
+
 		ConsoleDisplayMgr cdm = ConsoleDisplayMgr.getDefault();
 
 		String targetConfig = configuration.getAttribute(DeepPlugin.ATTR_TARGET_CONFIG, "");
@@ -91,9 +97,16 @@ public class DeepLaunchDelegate extends JavaLaunchDelegate{
 		IProject project = projectResource.getProject();
 		if (project == null)
 			throw new RuntimeException("not a project:" + projectResource.getFullPath());
+		
+		File[] extraClasspathEntries = null;
 
+		//get classpath entries from project and its dependencies
+		Set<IProject> visitedProjects = new HashSet<IProject>();
+		Set<File> classpathEntries = new LinkedHashSet<File>();
+		resolveClasspath(visitedProjects, classpathEntries, workspace, project);
+		extraClasspathEntries = classpathEntries.toArray(new File[classpathEntries.size()]);
 
-		Launcher.buildAll(project.getFile(program).getRawLocation().toString(), targetConfig);
+		Launcher.buildAll(project.getFile(program).getRawLocation().toString(), targetConfig, extraClasspathEntries);
 
 		monitor.worked(50);
 		if (monitor.isCanceled()) {
@@ -147,5 +160,59 @@ public class DeepLaunchDelegate extends JavaLaunchDelegate{
 		IDebugTarget target = new DummyDebugTarget(launch);
 		launch.addDebugTarget(target);
 		target.terminate();
+	}
+
+	/**
+	 * Resolves classpath
+	 * 
+	 * TODO refactoring: move to another class
+	 * 
+	 * @param classpathEntries
+	 * @param workspace
+	 * @param javaProject
+	 * @throws JavaModelException
+	 */
+	private static void resolveClasspath(Set<IProject> visitedProjects, Set<File> classpathEntries,
+			IWorkspace workspace, IProject project) throws JavaModelException {
+
+		if (!visitedProjects.add(project)) {
+			// TODO verify .equals() implementation
+			StdStreams.err.println("dependency cycle detected, involved project: " + project.getName());
+			return;
+		}
+
+		IJavaProject javaProject = JavaCore.create(project);
+		if (javaProject == null)
+			return;
+
+		IResource outputLocationResource = workspace.getRoot().findMember(javaProject.getOutputLocation());
+		classpathEntries.add(outputLocationResource.getRawLocation().toFile());
+
+		for (IClasspathEntry classpathEntry : javaProject.getResolvedClasspath(true)) {
+			switch (classpathEntry.getEntryKind()) {
+			case IClasspathEntry.CPE_LIBRARY:
+			case IClasspathEntry.CPE_VARIABLE:
+				IClasspathEntry resolvedClasspathEntry = JavaCore.getResolvedClasspathEntry(classpathEntry);
+				IResource dependencyClasspathResource = workspace.getRoot()
+						.findMember(resolvedClasspathEntry.getPath());
+				if (dependencyClasspathResource == null)
+					break;
+
+				classpathEntries.add(dependencyClasspathResource.getRawLocation().toFile());
+
+				break;
+			case IClasspathEntry.CPE_PROJECT:
+				IResource dependencyProjectResource = workspace.getRoot().findMember(classpathEntry.getPath());
+				if (dependencyProjectResource == null)
+					break;
+				IProject dependencyProject = dependencyProjectResource.getProject();
+				if (dependencyProject == null)
+					break;
+
+				resolveClasspath(visitedProjects, classpathEntries, workspace, dependencyProject);
+				break;
+			default:
+			}
+		}
 	}
 }

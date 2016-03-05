@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 import ch.ntb.inf.deep.cfg.CFG;
@@ -63,7 +64,14 @@ public class Launcher implements ICclassFileConsts {
 	private static TargetConnection tc;
 	private static long time;
 
-	public static int buildAll(String deepProjectFileName, String targetConfigurationName) {
+
+	/**
+	 * @param deepProjectFileName
+	 * @param targetConfigurationName
+	 * @param extraClasspathEntries (optional)
+	 * @return
+	 */
+	public static int buildAll(String deepProjectFileName, String targetConfigurationName, File[] extraClasspathEntries) {
 		// choose the attributes which should be read from the class file
 		int attributes = (1 << atxCode) | (1 << atxLocalVariableTable) | (1 << atxExceptions) | (1 << atxLineNumberTable);
 		
@@ -99,7 +107,17 @@ public class Launcher implements ICclassFileConsts {
 		// Read required classes
 		if (reporter.nofErrors <= 0) {
 			if (dbg) vrb.println("[Launcher] Loading Classfiles");
-			CFR.buildSystem(rootClassNames, Configuration.getSearchPaths(), Configuration.getSystemClasses(), attributes);
+
+			File[] searchPaths = Configuration.getSearchPaths();
+			if (extraClasspathEntries != null && extraClasspathEntries.length > 0) {
+				File[] allSearchPaths = Arrays.copyOf(searchPaths, searchPaths.length + extraClasspathEntries.length);
+				System.arraycopy(extraClasspathEntries, 0, allSearchPaths, searchPaths.length, extraClasspathEntries.length);
+				searchPaths = allSearchPaths;
+			}
+
+			if (dbg) vrb.println("[Launcher] Classpath entries: " + searchPaths);
+
+			CFR.buildSystem(rootClassNames, searchPaths, Configuration.getSystemClasses(), attributes);
 			//				CFR.buildSystem(rootClassNames, Configuration.getSearchPaths(), null, attributes);
 			if (dbgProflg) {vrb.println("duration for reading class files = " + ((System.nanoTime() - time) / 1000) + "us"); time = System.nanoTime();}
 		}
