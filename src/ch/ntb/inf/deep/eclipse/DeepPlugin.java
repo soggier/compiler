@@ -25,15 +25,31 @@ import java.net.URL;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.resources.IResourceDeltaVisitor;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.ui.IStartup;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
+import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
+import ch.ntb.inf.deep.eclipse.ui.properties.DeepFileChanger;
 import ch.ntb.inf.deep.eclipse.ui.view.ConsoleDisplayMgr;
 import ch.ntb.inf.deep.host.StdStreams;
 
@@ -113,6 +129,11 @@ public class DeepPlugin extends AbstractUIPlugin {
 	 */
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
+		
+		StdStreams.vrb.println("starting plugin");
+
+		//install a resource listener in order to pick up changes in deep files automatically
+		ResourcesPlugin.getWorkspace().addResourceChangeListener(resourceChangeListener);
 	}
 
 	/**
@@ -120,8 +141,13 @@ public class DeepPlugin extends AbstractUIPlugin {
 	 */
 	public void stop(BundleContext context) throws Exception {
 		super.stop(context);
+		
+		StdStreams.vrb.println("stopping plugin");
+
 		plugin = null;
 		resourceBundle = null;
+
+		ResourcesPlugin.getWorkspace().removeResourceChangeListener(resourceChangeListener);
 	}
 
 	/**
@@ -193,4 +219,84 @@ public class DeepPlugin extends AbstractUIPlugin {
               ImageDescriptor.createFromURL(imageFileUrl).createImage();
     }
 
+	public static void updateClasspath(IProject project, String libpath) {
+		if(libpath == null)
+			libpath = getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
+		DeepFileChanger cfc = new DeepFileChanger(project.getLocation() + "/.classpath");
+		cfc.changeLibPath(libpath);
+		cfc.save();
+	}
+	
+	private IResourceChangeListener resourceChangeListener = new IResourceChangeListener() {
+		public void resourceChanged(IResourceChangeEvent event) {
+			final IResourceDelta changes;
+			
+			if(event.getType() != IResourceChangeEvent.POST_CHANGE)
+				return;
+			changes = event.getDelta();
+			if(changes == null)
+				return;
+
+			try {
+			changes.accept(new IResourceDeltaVisitor() {
+					@Override
+					public boolean visit(IResourceDelta delta) throws CoreException {
+						try {
+							IResource resource = delta.getResource();
+							if (resource == null)
+								return true;
+							if(resource.getType() != IResource.FILE)
+								return true;
+
+							if ("deep".equalsIgnoreCase(resource.getFileExtension())) {
+								StdStreams.vrb.println("resource changed: " + resource.getRawLocation());
+
+								DeepConfigurationJob job = new DeepConfigurationJob(resource);
+								job.setPriority(Job.BUILD);
+					            job.schedule();
+							}
+						} catch (Exception e) {
+							// TODO proper exception handling in DeepFileChanger, etc.
+							e.printStackTrace();
+						}
+						return true;
+					}
+				});
+			} catch (Exception e) {
+				// TODO proper exception handling
+				e.printStackTrace();
+			}
+		}
+	};
+
+	private static class DeepConfigurationJob extends Job {
+		private IResource resource;
+
+		public DeepConfigurationJob(IResource resource) {
+			super("Deep project configuration");
+			this.resource = resource;
+		}
+
+		@Override
+		protected IStatus run(IProgressMonitor monitor) {
+			DeepFileChanger dfc = new DeepFileChanger(resource.getRawLocation().toString());
+			String libpathStr = dfc.getContent("libpath");
+			String libpath;
+
+			if (libpathStr != null && libpathStr.length() > 2)
+				libpath = libpathStr.substring(1, libpathStr.length() - 1);
+			else
+				libpath = null;
+
+			updateClasspath(resource.getProject(), libpath);
+
+			try { // refresh the package explorer
+				ResourcesPlugin.getWorkspace().getRoot().refreshLocal(IResource.DEPTH_INFINITE,
+						new NullProgressMonitor());
+			} catch (CoreException e) {
+				e.printStackTrace();
+			}
+			return Status.OK_STATUS;
+		}
+	}
 }

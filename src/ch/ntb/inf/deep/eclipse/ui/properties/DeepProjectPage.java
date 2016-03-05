@@ -22,11 +22,7 @@ import java.io.File;
 import java.util.GregorianCalendar;
 
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ProjectScope;
-import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
@@ -538,20 +534,9 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		}
 		dfc.save();
 
-		// change classpath file
-		DeepFileChanger cfc = new DeepFileChanger(project.getLocation() + "/.classpath");
-		cfc.changeLibPath(projectSpecificLibPath);
-		cfc.save();
-
 		lastChoice = path.getText();
 		lastImgPathChoice = pathImg.getText();
 		lastImgFormatChoice = imgFormatCombo.getText();
-		
-		try { // refresh the package explorer
-			ResourcesPlugin.getWorkspace().getRoot().refreshLocal(IResource.DEPTH_INFINITE, new NullProgressMonitor());
-		} catch (CoreException e) {
-			e.printStackTrace();
-		}
 	}
 }
 

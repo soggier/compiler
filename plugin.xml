@@ -325,5 +325,12 @@ read and modify registers
       </enablement>
     </renameParticipant>
   </extension>
-	
+
+  <extension
+        point="org.eclipse.ui.startup">
+     <startup
+           class="ch.ntb.inf.deep.eclipse.StartupHook">
+     </startup>
+  </extension>
+
 </plugin>

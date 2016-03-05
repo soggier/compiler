@@ -26,9 +26,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import ch.ntb.inf.deep.eclipse.DeepPlugin;
-import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
-
 public class DeepFileChanger {
 	StringBuffer fileContent;
 	String deepFile;
@@ -156,9 +153,6 @@ public class DeepFileChanger {
 	}
 	
 	public void changeLibPath(String newPath) {
-		if(newPath == null)
-			newPath = DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
-		
 		String key = "<classpathentry kind=\"lib\" path=\"";
 		int indexOfKey = fileContent.indexOf(key);
 		if (indexOfKey > -1){
@@ -191,7 +185,7 @@ public class DeepFileChanger {
 			fileContent.insert(indexOfNewLine, "\n\t" + key + " = " + value + ";");
 		}
 	}
-	
+
 	public void commentContent(String key) {
 		int start = 0;
 		int indexOfKey = 0;
@@ -211,7 +205,7 @@ public class DeepFileChanger {
 			start = indexOfKey + 1;
 		}
 	}
-	
+
 	public void save() {
 		try {
 			BufferedWriter out = new BufferedWriter(new FileWriter(deepFile));
