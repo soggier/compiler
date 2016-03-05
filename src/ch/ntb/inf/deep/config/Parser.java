@@ -1583,7 +1583,7 @@ public class Parser implements ICclassFileConsts {
 		next();
 		if (sym != sLBrace) {reporter.error(207, "in " + currentFileName + " at Line "	+ lineNumber); return;}
 		next();
-		if (sym != sLibPath) {reporter.error(206, "in " + currentFileName + " at Line " + lineNumber + " expected symbol: libpath, received symbol: " + symToString() + " -> libpath has to be specified first in project"); return;}
+		//if (sym != sLibPath) {reporter.error(206, "in " + currentFileName + " at Line " + lineNumber + " expected symbol: libpath, received symbol: " + symToString() + " -> libpath has to be specified first in project"); return;}
 		HString[] libPath = libPathAssignment();
 		if (dbg) {
 			StdStreams.vrb.print("[CONF] Parser: Setting library path to: \"");
@@ -1595,7 +1595,7 @@ public class Parser implements ICclassFileConsts {
 		}
 
 		//if libpath is empty or absent, use the workspace default
-		if(libPath.length == 0)
+		if(libPath == null || libPath.length == 0)
 			libPath = new HString[]{
 					HString.getHString(DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH))
 			};
