@@ -18,8 +18,12 @@
 
 package ch.ntb.inf.deep.eclipse.launcher;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
@@ -38,6 +42,7 @@ import ch.ntb.inf.deep.config.Programmer;
 import ch.ntb.inf.deep.eclipse.DeepPlugin;
 import ch.ntb.inf.deep.eclipse.ui.view.ConsoleDisplayMgr;
 import ch.ntb.inf.deep.host.ErrorReporter;
+import ch.ntb.inf.deep.host.StdStreams;
 import ch.ntb.inf.deep.launcher.Launcher;
 import ch.ntb.inf.deep.strings.HString;
 import ch.ntb.inf.deep.target.TargetConnection;
@@ -77,16 +82,21 @@ public class DeepLaunchDelegate extends JavaLaunchDelegate{
 			monitor.done();
 			return;
 		}
-		
-		if(location.charAt(0) == IPath.SEPARATOR ){			
-			Launcher.buildAll(ResourcesPlugin.getWorkspace().getRoot().getLocation().toString() + /*IPath.SEPARATOR +*/ location + IPath.SEPARATOR + program, targetConfig);			
-		}
-		else {
-			Launcher.buildAll(location + IPath.SEPARATOR + program, targetConfig);
-		}
-		
+
+		IWorkspace workspace = ResourcesPlugin.getWorkspace();
+		IResource projectResource = workspace.getRoot().findMember(location);
+		if (projectResource == null)
+			throw new RuntimeException("Failed to resolve project '" + location + "' in '" + workspace + "'");
+
+		IProject project = projectResource.getProject();
+		if (project == null)
+			throw new RuntimeException("not a project:" + projectResource.getFullPath());
+
+
+		Launcher.buildAll(project.getFile(program).getRawLocation().toString(), targetConfig);
+
 		monitor.worked(50);
-		if(monitor.isCanceled()) {
+		if (monitor.isCanceled()) {
 			monitor.done();
 			return;
 		}
