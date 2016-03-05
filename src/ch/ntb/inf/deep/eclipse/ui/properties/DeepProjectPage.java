@@ -346,7 +346,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		for (int i = 0; i < boards.length; i++) {
 			str[i] = boards[i][1];
 			//				if (pref.get("board", "").equals(boards[i][0])) index = i;
-			if (board.equals(boards[i][0])) index = i;
+			if (board != null && board.equals(boards[i][0])) index = i;
 		}
 		str[str.length - 1] = "none";
 		boardCombo.setItems(str);
@@ -358,7 +358,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		for (int i = 0; i < programmers.length; i++) {
 			str[i] = programmers[i][1];
 			//				if (pref.get("programmer", "").equals(programmers[i][0])) index = i;
-			if (programmer.equals(programmers[i][0])) index = i;
+			if (programmer != null && programmer.equals(programmers[i][0])) index = i;
 		}
 		str[str.length - 1] = "none";
 		programmerCombo.setItems(str);
@@ -370,7 +370,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		for (int i = 0; i < osys.length; i++) {
 			str[i] = osys[i][1];
 			//				if (pref.get("os", "").equals(os[i][0])) index = i;
-			if (os.equals(osys[i][0])) index = i;
+			if (os != null && os.equals(osys[i][0])) index = i;
 		}
 		str[str.length - 1] = "none";
 		osCombo.setItems(str);
