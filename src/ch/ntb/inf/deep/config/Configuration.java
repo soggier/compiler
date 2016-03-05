@@ -383,16 +383,17 @@ public class Configuration implements ICclassFileConsts {
 
 	public static File[] getSearchPaths() {
 		File[] libPaths = project.libs;
-		File[] javaSearchPaths = new File[libPaths.length + 1];
+		File[] javaSearchPaths = new File[(libPaths != null ? libPaths.length : 0) + 1];
 		javaSearchPaths[0] = new File(project.getProjectDir().getAbsolutePath() + File.separator + "bin" + File.separator);
-		for (int i = 0; i < libPaths.length; i++) {
-			if (libPaths[i].isDirectory()) { // directory
-				javaSearchPaths[i + 1] = new File(libPaths[i].getAbsolutePath() + File.separator + "bin" + File.separator);
+		if(libPaths != null)
+			for (int i = 0; i < libPaths.length; i++) {
+				if (libPaths[i].isDirectory()) { // directory
+					javaSearchPaths[i + 1] = new File(libPaths[i].getAbsolutePath() + File.separator + "bin" + File.separator);
+				}
+				else { // jar file
+					javaSearchPaths[i + 1] = libPaths[i];
+				}
 			}
-			else { // jar file
-				javaSearchPaths[i + 1] = libPaths[i];
-			}
-		}
 		if (dbg) {
 			vrb.println("[CONF] javaSearchPath:");
 			for (File f : javaSearchPaths) vrb.print("  " + f.getAbsolutePath() + "\n");

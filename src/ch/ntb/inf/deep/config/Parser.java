@@ -1584,24 +1584,10 @@ public class Parser implements ICclassFileConsts {
 		if (sym != sLBrace) {reporter.error(207, "in " + currentFileName + " at Line "	+ lineNumber); return;}
 		next();
 		//if (sym != sLibPath) {reporter.error(206, "in " + currentFileName + " at Line " + lineNumber + " expected symbol: libpath, received symbol: " + symToString() + " -> libpath has to be specified first in project"); return;}
-		HString[] libPath = libPathAssignment();
-		if (dbg) {
-			StdStreams.vrb.print("[CONF] Parser: Setting library path to: \"");
-			for (int i = 0; i < libPath.length; i++) {
-				StdStreams.vrb.print(libPath[i].toString());
-				if (i < libPath.length - 1) StdStreams.vrb.print(", ");
-			}
-			StdStreams.vrb.println("\"");
-		}
 
-		//if libpath is empty or absent, use the workspace default
-		if(libPath == null || libPath.length == 0)
-			libPath = new HString[]{
-					HString.getHString(DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH))
-			};
+		HString[] libPath = null;
 
-		Configuration.getActiveProject().createLibs(libPath);
-		while (sym == sRootclasses || sym == sBoardType || sym == sOsType	|| sym == sProgrammerType || sym == sProgrammerOpts || sym == sTctFile || sym == sImgFile || sym == sImgFormat) {
+		while (sym == sRootclasses || sym == sBoardType || sym == sOsType	|| sym == sProgrammerType || sym == sProgrammerOpts || sym == sTctFile || sym == sImgFile || sym == sImgFormat || sym == sLibPath) {
 			if (sym == sRootclasses) {
 				if (dbg) StdStreams.vrb.print("[CONF] Parser: Setting rootclasses");
 				Configuration.setRootClasses(rootClassesAssignment());
@@ -1633,6 +1619,8 @@ public class Parser implements ICclassFileConsts {
 						StdStreams.vrb.println("[CONF] Parser: Setting image file format failed " + currentProject.imgFileFormat);
 					}
 				}
+			} else if(sym == sLibPath) {
+				libPath = libPathAssignment();
 			} else { // sym == sTctFile
 				currentProject.setTctFileName(tctFileAssignment());
 				if (dbg) StdStreams.vrb.println("[CONF] Parser: Setting target command file to " + currentProject.getTctFileName());
@@ -1640,6 +1628,23 @@ public class Parser implements ICclassFileConsts {
 		}
 		if (sym != sRBrace) {reporter.error(202, "in " + currentFileName + " at Line "	+ lineNumber); return;}
 		next();
+
+		//if libpath is empty or absent, use the workspace default
+		//TODO refactoring: don't use eclipse API here
+		if(libPath == null || libPath.length == 0)
+			libPath = new HString[]{
+					HString.getHString(DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH))
+			};
+		Configuration.getActiveProject().createLibs(libPath);
+		if (dbg) {
+			StdStreams.vrb.print("[CONF] Parser: Setting library path to: \"");
+			for (int i = 0; i < libPath.length; i++) {
+				StdStreams.vrb.print(libPath[i].toString());
+				if (i < libPath.length - 1) StdStreams.vrb.print(", ");
+			}
+			StdStreams.vrb.println("\"");
+		}
+
 		if (Configuration.getRootClasses() == null || Configuration.getBoard() == null || Configuration.getOS() == null) {
 			reporter.error(229,"in " + currentFileName + " \"project\" tags \"rootclasses, boardtype and ostype\" must be defined"); 
 			return;
