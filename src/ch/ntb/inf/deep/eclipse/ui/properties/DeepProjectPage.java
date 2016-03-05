@@ -85,6 +85,8 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 			lastChoice = "";
 		if(lastImgFormatChoice == null)
 			lastImgFormatChoice = "";
+		if(lastImgPathChoice == null)
+			lastImgPathChoice = "";
 		
 		
 		board = dfc.getContent("boardtype");
@@ -237,7 +239,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 						imgFormatCombo.setEnabled(true);
 						indexImgFormat = 0;
 						for (int i = 0; i < Configuration.formatMnemonics.length; i++) {
-							if (lastImgFormatChoice.equalsIgnoreCase(Configuration.formatMnemonics[i])) indexImgFormat = i;
+							if (lastImgFormatChoice != null && lastImgFormatChoice.equalsIgnoreCase(Configuration.formatMnemonics[i])) indexImgFormat = i;
 						}
 						imgFormatCombo.select(indexImgFormat);
 						createImgFile = true;
@@ -248,7 +250,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 						imgFormatCombo.setEnabled(false);
 						indexImgFormat = 0;
 						for (int i = 0; i < Configuration.formatMnemonics.length; i++) {
-							if (lastImgFormatChoice.equalsIgnoreCase(Configuration.formatMnemonics[i])) indexImgFormat = i;
+							if (lastImgFormatChoice != null && lastImgFormatChoice.equalsIgnoreCase(Configuration.formatMnemonics[i])) indexImgFormat = i;
 						}
 						imgFormatCombo.select(indexImgFormat);
 						createImgFile = false;
@@ -289,7 +291,7 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		imgFormatCombo.addSelectionListener(listener);
 		indexImgFormat = 0;
 		for (int i = 0; i < Configuration.formatMnemonics.length; i++) {
-			if (lastImgFormatChoice.equalsIgnoreCase(Configuration.formatMnemonics[i])) indexImgFormat = i;
+			if (lastImgFormatChoice != null && lastImgFormatChoice.equalsIgnoreCase(Configuration.formatMnemonics[i])) indexImgFormat = i;
 		}
 		imgFormatCombo.select(indexImgFormat);
 		
@@ -503,26 +505,13 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		}
 		else if(programmerCombo.getText().equals("none") && dfc.getContent("programmertype") == null){
 		}
-		else if(dfc.getContent("programmertype") == null){
-			dfc.addContent("programmertype", programmer);
-		}
-		else{
+		else 
 			dfc.setContent("programmertype", programmer);
-		}
+
 		dfc.setContent("rootclasses", rootclasses);
 		if(createImgFile){  //add Line for imgfile
-			if(dfc.getContent("imgfile") == null){
-				dfc.addContent("imgfile", "\"" + lastImgPathChoice + "\\" + project.getName() + "." + lastImgFormatChoice.toLowerCase() + "\"");
-			}
-			else{
-				dfc.setContent("imgfile", "\"" + lastImgPathChoice + "\\"+ project.getName() + "." + lastImgFormatChoice.toLowerCase() + "\"");
-			}
-			if(dfc.getContent("imgformat") == null){
-				dfc.addContent("imgformat", lastImgFormatChoice);
-			}
-			else{
-				dfc.setContent("imgformat", lastImgFormatChoice);
-			}
+			dfc.setContent("imgfile", "\"" + lastImgPathChoice + "\\"+ project.getName() + "." + lastImgFormatChoice.toLowerCase() + "\"");
+			dfc.setContent("imgformat", lastImgFormatChoice);
 		}
 		else{ //comment imgfile lines
 			if(dfc.getContent("imgfile") == null){
