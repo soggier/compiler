@@ -20,6 +20,9 @@ package ch.ntb.inf.deep.eclipse.ui.wizard;
 
 import java.io.File;
 
+import ch.ntb.inf.deep.eclipse.DeepPlugin;
+import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
+
 public class DeepProjectModel {
 
 	private File lib;
@@ -36,6 +39,13 @@ public class DeepProjectModel {
 	
 	public File getLibrary() {
 		return this.lib;
+	}
+	
+	public File getEffectiveLibrary() {
+		File libpath = this.lib;
+		if (libpath == null)
+			libpath = new File(DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH));
+		return libpath;
 	}
 
 	public String[] getBoard() {

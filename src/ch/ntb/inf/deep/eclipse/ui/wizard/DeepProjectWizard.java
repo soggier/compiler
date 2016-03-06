@@ -52,6 +52,7 @@ import org.eclipse.ui.actions.WorkspaceModifyOperation;
 import org.osgi.service.prefs.BackingStoreException;
 
 import ch.ntb.inf.deep.eclipse.DeepPlugin;
+import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
 
 
 public class DeepProjectWizard extends Wizard implements INewWizard{
@@ -140,86 +141,100 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 			description = project.getDescription();		
 			description.setNatureIds(new String[] {"ch.ntb.inf.deep.nature.DeepNature",	"org.eclipse.jdt.core.javanature" });
 			project.setDescription(description, new SubProgressMonitor(monitor, 10));
-		} catch (CoreException e) {e.printStackTrace();
-		} finally {
-			// create folders
-			IFolder scrFolder = project.getFolder("src");
-			IFolder binFolder = project.getFolder("bin");
-			try {
-				scrFolder.create(true, true, null);
-				binFolder.create(true, true, null);
-			} catch (CoreException e) {e.printStackTrace();}
-			
-			// create classpath file
-			IFile file = project.getFile(".classpath");
-			String libpath1 = model.getLibrary().getAbsolutePath();
-			String libpath = libpath1.replace('\\', '/'); 
-			StringBuffer sb = new StringBuffer();
-			File srcFolder = new File(libpath + "/src");
-			sb.append("<?xml version=\"1.0\" encoding =\"UTF-8\"?>\n");
-			sb.append("<classpath>\n");
-			sb.append("\t<classpathentry kind=\"src\" path=\"src\"/>\n");
-			if (srcFolder.exists()) sb.append("\t<classpathentry kind=\"lib\" path=\"" + libpath + "/bin\" sourcepath=\"" + libpath + "/src\"/>\n");
-			else sb.append("\t<classpathentry kind=\"lib\" path=\"" + libpath + "/bin\"/>\n");
-			sb.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jdt.launching.JRE_CONTAINER\"/>\n");
-			sb.append("\t<classpathentry kind=\"output\" path=\"bin\"/>\n");
-			sb.append("</classpath>\n");
-			InputStream in = new ByteArrayInputStream(sb.toString().getBytes());
-			try {
-				file.create(in, true, null);
-			} catch (CoreException e) {e.printStackTrace();}
-
-			// create deep file
-			file = project.getFile(project.getName() +".deep");
-			GregorianCalendar cal = new GregorianCalendar();
-			sb = new StringBuffer();
-			sb.append("#deep-1\n\nmeta {\n\tversion = \"" + cal.getTime() +"\";\n");
-			sb.append("\tdescription = \"deep project file for " + project.getName() + "\";\n");
-			sb.append("}\n\n");
-			sb.append("project " + project.getName() + " {\n\tlibpath = ");
-			String str = model.getLibrary().getAbsolutePath();
-			str = str.replace('/', '\\');			
-			sb.append("\"" + str + "\";\n");
-			sb.append("\tboardtype = ");
-			if (model != null && model.getBoard() != null) sb.append(model.getBoard()[0]);
-			sb.append(";\n");
-			sb.append("\tostype = ");
-			if (model != null && model.getOs() != null) sb.append(model.getOs()[0]);
-			sb.append(";\n");
-			if(model.getProgrammer() == null){
-				sb.append("#");
-			}
-			sb.append("\tprogrammertype = "); 
-			if (model != null && model.getProgrammer() != null) sb.append(model.getProgrammer()[0]);
-			sb.append(";\n\n#\tenter names of rootclasses, e.g.");
-			sb.append("\n#\trootclasses = \"test.MyFirstTestClass\",\"other.MySecondTestClass\";");
-			sb.append("\n\trootclasses = \"\";\n\n");
-			if (model != null && !model.createImgFile()){
-				sb.append("#");
-			}
-			sb.append("\timgfile = ");
-			if (model != null && model.getImgPath() == null){
-				str = project.getLocation().toString();
-				str = str.replace('/', '\\');
-				sb.append("\"" + str);
-			}
-			else{
-				str = model.getImgPath().getAbsolutePath();
-				str = str.replace('/', '\\');
-				sb.append("\"" + str);
-			}
-			sb.append("\\" + project.getName() + "." + model.getImgFormat().toLowerCase() + "\";\n");
-			if(model != null && !model.createImgFile()){
-				sb.append("#");
-			}
-			sb.append("\timgformat = " + model.getImgFormat());
-			sb.append(";\n}\n");
-			in = new ByteArrayInputStream(sb.toString().getBytes());
-			try {
-				file.create(in, false, null);
-			} catch(CoreException e) {e.printStackTrace();}
-			monitor.done();
+		} catch (CoreException e) {
+			e.printStackTrace();
 		}
+
+		// create folders
+		IFolder scrFolder = project.getFolder("src");
+		IFolder binFolder = project.getFolder("bin");
+		try {
+			scrFolder.create(true, true, null);
+			binFolder.create(true, true, null);
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
+
+		// create classpath file
+		IFile file = project.getFile(".classpath");
+		String libpath = null;
+		if(model.getLibrary() != null) {
+			libpath = model.getLibrary().getAbsolutePath();
+		} else {
+			libpath = DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
+		}
+		libpath = libpath.replace('\\', '/');
+		StringBuffer sb = new StringBuffer();
+		File srcFolder = new File(libpath + "/src");
+		sb.append("<?xml version=\"1.0\" encoding =\"UTF-8\"?>\n");
+		sb.append("<classpath>\n");
+		sb.append("\t<classpathentry kind=\"src\" path=\"src\"/>\n");
+		if (srcFolder.exists()) sb.append("\t<classpathentry kind=\"lib\" path=\"" + libpath + "/bin\" sourcepath=\"" + libpath + "/src\"/>\n");
+		else sb.append("\t<classpathentry kind=\"lib\" path=\"" + libpath + "/bin\"/>\n");
+		sb.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jdt.launching.JRE_CONTAINER\"/>\n");
+		sb.append("\t<classpathentry kind=\"output\" path=\"bin\"/>\n");
+		sb.append("</classpath>\n");
+		InputStream in = new ByteArrayInputStream(sb.toString().getBytes());
+		try {
+			file.create(in, true, null);
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
+
+		// create deep file
+		file = project.getFile(project.getName() +".deep");
+		GregorianCalendar cal = new GregorianCalendar();
+		String str;
+		sb = new StringBuffer();
+		sb.append("#deep-1\n\nmeta {\n\tversion = \"" + cal.getTime() +"\";\n");
+		sb.append("\tdescription = \"deep project file for " + project.getName() + "\";\n");
+		sb.append("}\n\n");
+		sb.append("project " + project.getName() + " {\n");
+		if (model.getLibrary() != null) {
+			sb.append("\tlibpath = ");
+			str = model.getLibrary().getAbsolutePath();
+			str = str.replace('/', '\\');
+			sb.append("\"" + str + "\";\n");
+		}
+		sb.append("\tboardtype = ");
+		if (model != null && model.getBoard() != null) sb.append(model.getBoard()[0]);
+		sb.append(";\n");
+		sb.append("\tostype = ");
+		if (model != null && model.getOs() != null) sb.append(model.getOs()[0]);
+		sb.append(";\n");
+		if(model.getProgrammer() == null){
+			sb.append("#");
+		}
+		sb.append("\tprogrammertype = ");
+		if (model != null && model.getProgrammer() != null) sb.append(model.getProgrammer()[0]);
+		sb.append(";\n\n#\tenter names of rootclasses, e.g.");
+		sb.append("\n#\trootclasses = \"test.MyFirstTestClass\",\"other.MySecondTestClass\";");
+		sb.append("\n\trootclasses = \"\";\n\n");
+		if (model != null && !model.createImgFile()){
+			sb.append("#");
+		}
+		sb.append("\timgfile = ");
+		if (model != null && model.getImgPath() == null){
+			str = project.getLocation().toString();
+			str = str.replace('/', '\\');
+			sb.append("\"" + str);
+		}
+		else{
+			str = model.getImgPath().getAbsolutePath();
+			str = str.replace('/', '\\');
+			sb.append("\"" + str);
+		}
+		sb.append("\\" + project.getName() + "." + model.getImgFormat().toLowerCase() + "\";\n");
+		if(model != null && !model.createImgFile()){
+			sb.append("#");
+		}
+		sb.append("\timgformat = " + model.getImgFormat());
+		sb.append(";\n}\n");
+		in = new ByteArrayInputStream(sb.toString().getBytes());
+		try {
+			file.create(in, false, null);
+		} catch(CoreException e) {e.printStackTrace();}
+		monitor.done();
 	}
 	
 	private void saveProjectPreferences(){
@@ -232,7 +247,8 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 			if (name != null) pref.put("os", name[0]);
 			name = model.getProgrammer();
 			if (name != null) pref.put("programmer", name[0]);
-			pref.put("libPath", model.getLibrary().getAbsolutePath());
+			if(model.getLibrary() != null)
+				pref.put("libPath", model.getLibrary().getAbsolutePath());
 		}
 		try {
 			pref.flush();

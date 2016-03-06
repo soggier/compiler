@@ -158,55 +158,46 @@ class TargetConfigPage extends WizardPage {
         }
 	}
 	
-	private void insertBoards() {
-		if (((DeepProjectWizard)getWizard()).model.getLibrary() != null) {
-			File lib = ((DeepProjectWizard)getWizard()).model.getLibrary();
-			boards = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.boardsPath), Parser.sBoard);
-			String[] str = new String[boards.length + 1];
-			int index = str.length - 1;
-			for (int i = 0; i < boards.length; i++) {
-				str[i] = boards[i][1];
-				if (boards[i][0].contains(defaultBoard)) index = i;
-			}
-			str[str.length - 1] = "none";
-			boardCombo.setItems(str);
-			boardCombo.select(index);
+	private void insertBoards(File lib) {
+		boards = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.boardsPath), Parser.sBoard);
+		String[] str = new String[boards.length + 1];
+		int index = str.length - 1;
+		for (int i = 0; i < boards.length; i++) {
+			str[i] = boards[i][1];
+			if (boards[i][0].contains(defaultBoard)) index = i;
 		}
+		str[str.length - 1] = "none";
+		boardCombo.setItems(str);
+		boardCombo.select(index);
 	}
 	
-	private void insertOperatingSystems() {
-		if (((DeepProjectWizard)getWizard()).model.getLibrary() != null) {
-			File lib = ((DeepProjectWizard)getWizard()).model.getLibrary();
-			operatingSystems = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.osPath), Parser.sOperatingSystem);
-			String[] str = new String[operatingSystems.length + 1];
-			int index = str.length - 1;
-			for (int i = 0; i < operatingSystems.length; i++) {
-				str[i] = operatingSystems[i][1];
-				if (operatingSystems[i][0].contains(defaultOs)) index = i;
-			}
-			str[str.length - 1] = "none";
-			osCombo.setItems(str);
-			osCombo.select(index);
+	private void insertOperatingSystems(File lib) {
+		operatingSystems = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.osPath), Parser.sOperatingSystem);
+		String[] str = new String[operatingSystems.length + 1];
+		int index = str.length - 1;
+		for (int i = 0; i < operatingSystems.length; i++) {
+			str[i] = operatingSystems[i][1];
+			if (operatingSystems[i][0].contains(defaultOs)) index = i;
 		}
+		str[str.length - 1] = "none";
+		osCombo.setItems(str);
+		osCombo.select(index);
 	}
 	
-	private void insertProgrammers() {
-		if (((DeepProjectWizard)getWizard()).model.getLibrary() != null) {
-			File lib = ((DeepProjectWizard)getWizard()).model.getLibrary();
-			programmers = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.progPath), Parser.sProgrammer);
-			String[] str = new String[programmers.length + 1];
-			int index = str.length - 1;
-			for (int i = 0; i < programmers.length; i++) {
-				str[i] = programmers[i][1];
-				if (programmers[i][0].contains(defaultProgrammer)) index = i;
-			}
-			str[str.length - 1] = "none";
-			programmerCombo.setItems(str);
-			programmerCombo.select(index);
+	private void insertProgrammers(File lib) {
+		programmers = Configuration.searchDescInConfig(new File(lib.toString() + Configuration.progPath), Parser.sProgrammer);
+		String[] str = new String[programmers.length + 1];
+		int index = str.length - 1;
+		for (int i = 0; i < programmers.length; i++) {
+			str[i] = programmers[i][1];
+			if (programmers[i][0].contains(defaultProgrammer)) index = i;
 		}
+		str[str.length - 1] = "none";
+		programmerCombo.setItems(str);
+		programmerCombo.select(index);
 	}
 	
-	private void insertImgFormats(){
+	private void insertImgFormats(File lib){
 		String[] str = new String[Configuration.formatMnemonics.length];
 		int index = str.length - 1;
 		for (int i = 0; i < Configuration.formatMnemonics.length; i++) {
@@ -237,10 +228,13 @@ class TargetConfigPage extends WizardPage {
 	@Override
 	public void setVisible(boolean visible) {
 		if (visible) {
-			insertBoards();
-			insertOperatingSystems();
-			insertProgrammers();
-			insertImgFormats();
+			File lib = ((DeepProjectWizard) getWizard()).model.getEffectiveLibrary();
+			if (lib != null) {
+				insertBoards(lib);
+				insertOperatingSystems(lib);
+				insertProgrammers(lib);
+				insertImgFormats(lib);
+			}
 		}
         getControl().setVisible(visible);
         validatePage();	// must happen to store settings to model in case that no combo is changed
