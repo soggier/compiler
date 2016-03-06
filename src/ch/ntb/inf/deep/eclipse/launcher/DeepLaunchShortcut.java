@@ -14,6 +14,7 @@
 package ch.ntb.inf.deep.eclipse.launcher;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -92,33 +93,38 @@ public class DeepLaunchShortcut implements ILaunchShortcut2 {
 	public void launch(IEditorPart editor, String mode) {
 		IEditorInput input = editor.getEditorInput();
 		if (input.getName().endsWith(".deep")) {
-			IFile file = (IFile) input.getAdapter(IFile.class);
-			if (file != null) {
-				performLaunch(new Object[] { file }, mode);
+			IFile deepFile = (IFile) input.getAdapter(IFile.class);
+			if (deepFile != null) {
+				performLaunch(new Object[] { deepFile }, mode);
 			}
 		}
 	}
 
 	protected void performLaunch(Object[] search, String mode) {
-		// first try to find a candidate
-		Object candidate = null;
-		boolean found = false;
+		IFile deepFile = null;
 		if (search != null) {
-			for (int i = 0; i < search.length && !found; i++) {
-				candidate = search[i];
-				if (!(candidate instanceof IFile)
-						&& candidate instanceof IAdaptable) {
-					candidate = ((IAdaptable) candidate)
-							.getAdapter(IFile.class);
-				}
-				if (candidate instanceof IFile) {
-					IFile element = (IFile) candidate;
-					if ("deep".equals(element.getFileExtension())) {
-						found = true;
+			for (int i = 0; i < search.length && deepFile == null; i++) {
+				if(search[i] instanceof IAdaptable){
+					// deep file
+					IFile file = ((IAdaptable) search[i]).getAdapter(IFile.class);
+					if (file != null) {
+						if ("deep".equals(file.getFileExtension())) {
+							deepFile = file;
+							break;
+						}
+					}
+					// deep project
+					IProject project = ((IAdaptable) search[i]).getAdapter(IProject.class);
+					if (project != null) {
+						IFile defaultDeepFile = project.getFile(project.getName() + ".deep");
+						if (defaultDeepFile.exists()) {
+							deepFile = defaultDeepFile;
+							break;
+						}
 					}
 				}
 			}
-			if (found) {
+			if (deepFile != null) {
 				// second try to find a config
 				try {
 					String[] attributeToCompare = new String[]{ DeepPlugin.ATTR_DEEP_PROGRAM, DeepPlugin.ATTR_DEEP_LOCATION, DeepPlugin.ATTR_TARGET_CONFIG};
@@ -127,7 +133,7 @@ public class DeepLaunchShortcut implements ILaunchShortcut2 {
 					ILaunchConfiguration config = null;
 					if (type != null) {
 						ILaunchConfiguration[] configs = lm	.getLaunchConfigurations(type);
-						ILaunchConfigurationWorkingCopy copy = createConfiguration((IFile)candidate, configs);
+						ILaunchConfigurationWorkingCopy copy = createConfiguration(deepFile, configs);
 						for(int i = 0; i < configs.length; i++) {
 							if(hasSameAttributes(configs[i], copy, attributeToCompare)){
 								config = configs[i];
