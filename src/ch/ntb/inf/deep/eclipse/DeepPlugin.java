@@ -22,6 +22,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
@@ -34,16 +38,21 @@ import org.eclipse.core.resources.IResourceDeltaVisitor;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jdt.core.IAccessRule;
+import org.eclipse.jdt.core.IClasspathAttribute;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.ui.IStartup;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -219,33 +228,69 @@ public class DeepPlugin extends AbstractUIPlugin {
               ImageDescriptor.createFromURL(imageFileUrl).createImage();
     }
 
-	public static void updateClasspath(IProject project, String libpath) {
-		if(libpath == null)
-			libpath = getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
-		DeepFileChanger cfc = new DeepFileChanger(project.getLocation() + "/.classpath");
-		cfc.changeLibPath(libpath);
-		cfc.save();
+	private static final String DEEP_CLASSPATH_KEY_ATTR = "deepPlatformLibrary";
+
+	public static void updateClasspath(IProject project, String libpathStr) throws JavaModelException {
+		if (libpathStr == null)
+			libpathStr = getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
+
+		IPath libPath = Path.fromOSString(libpathStr);
+		IPath binPath = libPath.append("bin");
+		IPath srcPath = libPath.append("src");
+
+		IJavaProject javaProject = JavaCore.create(project);
+		if (javaProject != null) {
+			List<IClasspathEntry> projectClassPath = new ArrayList<IClasspathEntry>(
+					Arrays.asList(javaProject.getRawClasspath()));
+			for (Iterator<IClasspathEntry> classpathIt = projectClassPath.iterator(); classpathIt.hasNext();) {
+				IClasspathEntry existingClasspathEntry = classpathIt.next();
+
+				boolean matches = false;
+
+				matches = binPath.equals(existingClasspathEntry.getPath());
+				if (!matches)
+					for (IClasspathAttribute attr : existingClasspathEntry.getExtraAttributes()) {
+						if (DEEP_CLASSPATH_KEY_ATTR.equals(attr.getName())) {
+							matches = true;
+							break;
+						}
+					}
+
+				if (matches)
+					classpathIt.remove();// remove duplicate entries
+			}
+			IClasspathEntry classpathEntry = JavaCore.newLibraryEntry(
+					binPath, // binaries
+					srcPath, // sources
+					null, // source root
+					new IAccessRule[] {},
+					new IClasspathAttribute[] { JavaCore.newClasspathAttribute(DEEP_CLASSPATH_KEY_ATTR, null) }, false);
+			projectClassPath.add(classpathEntry);
+			javaProject.setRawClasspath(projectClassPath.toArray(new IClasspathEntry[projectClassPath.size()]), null);
+		} else {
+			StdStreams.err.println("Failed to modify classpath of project: " + project.getName());
+		}
 	}
-	
+
 	private IResourceChangeListener resourceChangeListener = new IResourceChangeListener() {
 		public void resourceChanged(IResourceChangeEvent event) {
 			final IResourceDelta changes;
-			
-			if(event.getType() != IResourceChangeEvent.POST_CHANGE)
+
+			if (event.getType() != IResourceChangeEvent.POST_CHANGE)
 				return;
 			changes = event.getDelta();
-			if(changes == null)
+			if (changes == null)
 				return;
 
 			try {
-			changes.accept(new IResourceDeltaVisitor() {
+				changes.accept(new IResourceDeltaVisitor() {
 					@Override
 					public boolean visit(IResourceDelta delta) throws CoreException {
 						try {
 							IResource resource = delta.getResource();
 							if (resource == null)
 								return true;
-							if(resource.getType() != IResource.FILE)
+							if (resource.getType() != IResource.FILE)
 								return true;
 
 							if ("deep".equalsIgnoreCase(resource.getFileExtension())) {
@@ -253,10 +298,11 @@ public class DeepPlugin extends AbstractUIPlugin {
 
 								DeepConfigurationJob job = new DeepConfigurationJob(resource);
 								job.setPriority(Job.BUILD);
-					            job.schedule();
+								job.schedule();
 							}
 						} catch (Exception e) {
-							// TODO proper exception handling in DeepFileChanger, etc.
+							// TODO proper exception handling in
+							// DeepFileChanger, etc.
 							e.printStackTrace();
 						}
 						return true;
@@ -279,22 +325,22 @@ public class DeepPlugin extends AbstractUIPlugin {
 
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
-			DeepFileChanger dfc = new DeepFileChanger(resource.getRawLocation().toString());
-			String libpathStr = dfc.getContent("libpath");
-			String libpath;
+			IPath rawLocation = resource.getRawLocation();
+			if (rawLocation != null) {
+				try {
+					DeepFileChanger dfc = new DeepFileChanger(rawLocation.toString());
+					String libpathStr = dfc.getContent("libpath");
+					String libpath;
 
-			if (libpathStr != null && libpathStr.length() > 2)
-				libpath = libpathStr.substring(1, libpathStr.length() - 1);
-			else
-				libpath = null;
+					if (libpathStr != null && libpathStr.length() > 2)
+						libpath = libpathStr.substring(1, libpathStr.length() - 1);
+					else
+						libpath = null;
 
-			updateClasspath(resource.getProject(), libpath);
-
-			try { // refresh the package explorer
-				ResourcesPlugin.getWorkspace().getRoot().refreshLocal(IResource.DEPTH_INFINITE,
-						new NullProgressMonitor());
-			} catch (CoreException e) {
-				e.printStackTrace();
+					updateClasspath(resource.getProject(), libpath);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 			return Status.OK_STATUS;
 		}
