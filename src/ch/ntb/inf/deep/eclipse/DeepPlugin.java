@@ -230,7 +230,7 @@ public class DeepPlugin extends AbstractUIPlugin {
 
 	private static final String DEEP_CLASSPATH_KEY_ATTR = "deepPlatformLibrary";
 
-	public static void updateClasspath(IProject project, String libpathStr) throws JavaModelException {
+	public static void updateClasspath(IProject project, String libpathStr, IProgressMonitor monitor) throws JavaModelException {
 		if (libpathStr == null)
 			libpathStr = getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
 
@@ -337,7 +337,16 @@ public class DeepPlugin extends AbstractUIPlugin {
 					else
 						libpath = null;
 
-					updateClasspath(resource.getProject(), libpath);
+					IProject project = resource.getProject();
+					if (project != null) {
+						updateClasspath(project, libpath, monitor);
+
+						try {
+							project.refreshLocal(IResource.DEPTH_INFINITE, monitor);
+						} catch (CoreException e) {
+							e.printStackTrace();
+						}
+					}
 				} catch (Exception e) {
 					e.printStackTrace();
 				}

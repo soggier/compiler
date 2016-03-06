@@ -22,8 +22,8 @@ import java.io.File;
 import java.util.GregorianCalendar;
 
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.ProjectScope;
-import org.eclipse.core.runtime.preferences.IEclipsePreferences;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
@@ -41,7 +41,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchPropertyPage;
 import org.eclipse.ui.dialogs.PropertyPage;
-import org.osgi.service.prefs.BackingStoreException;
 
 import ch.ntb.inf.deep.config.Configuration;
 import ch.ntb.inf.deep.config.Parser;
@@ -60,7 +59,6 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 	private String lastImgPathChoice = defaultImgPath;
 	private boolean createImgFile = false;
 	private String lastChoice, lastImgFormatChoice;
-	private IEclipsePreferences pref;
 	private Label libState;
 	private String projectSpecificLibPath, board, programmer, os, rootclasses, imglocation, imgformat;
 	private String[][] boards, programmers, osys, imgformats;
@@ -120,7 +118,6 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 //		System.out.println("");
 
 		// read project preferences
-		pref = getPref();
 		
 		// build control
 		Composite composite = new Composite(parent, SWT.NONE);
@@ -440,52 +437,21 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		return true;
 	}
 
-	private IEclipsePreferences getPref() {
-		IProject project =  (IProject) getElement().getAdapter(IProject.class);
-		ProjectScope scope = new ProjectScope(project);
-		return scope.getNode("deepStart");
-	}
-
+	@Override
 	protected void performApply() {
-		saveProjectPreferences();
 		saveFiles();
 		super.performApply();
 	}
 
+	@Override
 	public boolean performOk() {
-		saveProjectPreferences();
 		saveFiles();
 		return true;
 	}
-	
+
+	@Override
 	public boolean performCancel() {
 		return true;
-	}
-
-	private void saveProjectPreferences() {
-		pref.put("board", boardCombo.getText());
-		pref.put("programmer", programmerCombo.getText());
-		pref.put("os", osCombo.getText());
-		if (checkDefaultLibPath.getSelection()) {
-			pref.putBoolean("useDefault", true);
-			pref.put("libPath", defaultPath);
-		} else {
-			pref.putBoolean("useDefault", false);
-			pref.put("libPath", path.getText());
-		}
-		if (checkImg.getSelection()){
-			pref.put("imgfile", "\"" + imglocation + "\"");
-			pref.put("imgformat", imgFormatCombo.getText());
-		}
-		else{
-			pref.put("imgfile", "TestSave");
-			pref.put("imgformat", "TestFormat");
-		}
-		try {
-			pref.flush();
-		} catch (BackingStoreException e) {
-			e.printStackTrace();
-		}
 	}
 
 	private void saveFiles() {
@@ -526,6 +492,12 @@ public class DeepProjectPage extends PropertyPage implements IWorkbenchPropertyP
 		lastChoice = path.getText();
 		lastImgPathChoice = pathImg.getText();
 		lastImgFormatChoice = imgFormatCombo.getText();
+
+		try {
+			project.refreshLocal(IResource.DEPTH_INFINITE, null);
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
 	}
 }
 

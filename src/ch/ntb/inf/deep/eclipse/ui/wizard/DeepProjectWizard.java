@@ -28,8 +28,8 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspace;
-import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -38,7 +38,6 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubProgressMonitor;
-import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
@@ -51,7 +50,6 @@ import org.eclipse.jface.wizard.Wizard;
 import org.eclipse.ui.INewWizard;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.actions.WorkspaceModifyOperation;
-import org.osgi.service.prefs.BackingStoreException;
 
 import ch.ntb.inf.deep.eclipse.DeepPlugin;
 
@@ -80,7 +78,6 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 			reportError(x);
 			return false;
 		}
-		saveProjectPreferences();
 		dispose();
 		return true;
 	}
@@ -173,6 +170,12 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 			e.printStackTrace();
 		}
 
+		try {
+			project.refreshLocal(IResource.DEPTH_INFINITE, monitor);
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
+
 		// create deep file
 		IFile file = project.getFile(project.getName() +".deep");
 		GregorianCalendar cal = new GregorianCalendar();
@@ -227,26 +230,6 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 			file.create(in, false, null);
 		} catch(CoreException e) {e.printStackTrace();}
 		monitor.done();
-	}
-	
-	private void saveProjectPreferences(){
-		ProjectScope scope = new ProjectScope(project);
-		IEclipsePreferences pref = scope.getNode("deepStart");
-		if (pref != null) {
-			String[] name = model.getBoard();
-			if (name != null) pref.put("board", name[0]);
-			name = model.getOs();
-			if (name != null) pref.put("os", name[0]);
-			name = model.getProgrammer();
-			if (name != null) pref.put("programmer", name[0]);
-			if(model.getLibrary() != null)
-				pref.put("libPath", model.getLibrary().getAbsolutePath());
-		}
-		try {
-			pref.flush();
-		} catch (BackingStoreException e) {
-			e.printStackTrace();
-		}
 	}
 	
 	private void reportError(Exception x) {
