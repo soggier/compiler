@@ -19,8 +19,6 @@
 package ch.ntb.inf.deep.eclipse.ui.wizard;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -30,7 +28,6 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
-import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -42,6 +39,11 @@ import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubProgressMonitor;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.viewers.IStructuredSelection;
@@ -52,7 +54,6 @@ import org.eclipse.ui.actions.WorkspaceModifyOperation;
 import org.osgi.service.prefs.BackingStoreException;
 
 import ch.ntb.inf.deep.eclipse.DeepPlugin;
-import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
 
 
 public class DeepProjectWizard extends Wizard implements INewWizard{
@@ -136,56 +137,47 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 			monitor.worked(10);
 			if (project.exists()) {
 				project.open(monitor);
-				project.refreshLocal(IResource.DEPTH_INFINITE, monitor);
-			} else return;
-			description = project.getDescription();		
-			description.setNatureIds(new String[] {"ch.ntb.inf.deep.nature.DeepNature",	"org.eclipse.jdt.core.javanature" });
+			} else
+				return;
+			description = project.getDescription();
+			description.setNatureIds(new String[] { "ch.ntb.inf.deep.nature.DeepNature", "org.eclipse.jdt.core.javanature" });
 			project.setDescription(description, new SubProgressMonitor(monitor, 10));
 		} catch (CoreException e) {
 			e.printStackTrace();
+		} finally {
 		}
-
 		// create folders
-		IFolder scrFolder = project.getFolder("src");
+		IFolder srcFolder = project.getFolder("src");
 		IFolder binFolder = project.getFolder("bin");
 		try {
-			scrFolder.create(true, true, null);
+			srcFolder.create(true, true, null);
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
+		try {
 			binFolder.create(true, true, null);
 		} catch (CoreException e) {
 			e.printStackTrace();
 		}
 
-		// create classpath file
-		IFile file = project.getFile(".classpath");
-		String libpath = null;
-		if(model.getLibrary() != null) {
-			libpath = model.getLibrary().getAbsolutePath();
-		} else {
-			libpath = DeepPlugin.getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
-		}
-		libpath = libpath.replace('\\', '/');
-		StringBuffer sb = new StringBuffer();
-		File srcFolder = new File(libpath + "/src");
-		sb.append("<?xml version=\"1.0\" encoding =\"UTF-8\"?>\n");
-		sb.append("<classpath>\n");
-		sb.append("\t<classpathentry kind=\"src\" path=\"src\"/>\n");
-		if (srcFolder.exists()) sb.append("\t<classpathentry kind=\"lib\" path=\"" + libpath + "/bin\" sourcepath=\"" + libpath + "/src\"/>\n");
-		else sb.append("\t<classpathentry kind=\"lib\" path=\"" + libpath + "/bin\"/>\n");
-		sb.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jdt.launching.JRE_CONTAINER\"/>\n");
-		sb.append("\t<classpathentry kind=\"output\" path=\"bin\"/>\n");
-		sb.append("</classpath>\n");
-		InputStream in = new ByteArrayInputStream(sb.toString().getBytes());
 		try {
-			file.create(in, true, null);
-		} catch (CoreException e) {
+			IJavaProject javaProject = JavaCore.create(project);
+			if (javaProject != null) {
+				IPackageFragmentRoot srcRoot = javaProject.getPackageFragmentRoot(srcFolder);
+
+				IClasspathEntry[] classpathEntries = new IClasspathEntry[] { JavaCore.newSourceEntry(srcRoot.getPath()) };
+
+				javaProject.setRawClasspath(classpathEntries, null);
+			}
+		} catch (JavaModelException e) {
 			e.printStackTrace();
 		}
 
 		// create deep file
-		file = project.getFile(project.getName() +".deep");
+		IFile file = project.getFile(project.getName() +".deep");
 		GregorianCalendar cal = new GregorianCalendar();
 		String str;
-		sb = new StringBuffer();
+		StringBuffer sb = new StringBuffer();
 		sb.append("#deep-1\n\nmeta {\n\tversion = \"" + cal.getTime() +"\";\n");
 		sb.append("\tdescription = \"deep project file for " + project.getName() + "\";\n");
 		sb.append("}\n\n");
@@ -230,7 +222,7 @@ public class DeepProjectWizard extends Wizard implements INewWizard{
 		}
 		sb.append("\timgformat = " + model.getImgFormat());
 		sb.append(";\n}\n");
-		in = new ByteArrayInputStream(sb.toString().getBytes());
+		ByteArrayInputStream in = new ByteArrayInputStream(sb.toString().getBytes());
 		try {
 			file.create(in, false, null);
 		} catch(CoreException e) {e.printStackTrace();}
