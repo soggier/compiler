@@ -25,16 +25,21 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.Set;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IProjectNature;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IResourceDelta;
 import org.eclipse.core.resources.IResourceDeltaVisitor;
+import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
@@ -57,12 +62,15 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
+import ch.ntb.inf.deep.eclipse.nature.DeepNature;
 import ch.ntb.inf.deep.eclipse.ui.preferences.PreferenceConstants;
 import ch.ntb.inf.deep.eclipse.ui.properties.DeepFileChanger;
 import ch.ntb.inf.deep.eclipse.ui.view.ConsoleDisplayMgr;
 import ch.ntb.inf.deep.host.StdStreams;
 
 public class DeepPlugin extends AbstractUIPlugin {
+	private static final boolean DEBUG  = false;
+
 	//The shared instance.
 	private static DeepPlugin plugin;
 	//Resource bundle.
@@ -138,10 +146,9 @@ public class DeepPlugin extends AbstractUIPlugin {
 	 */
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
-		
-		StdStreams.vrb.println("starting plugin");
 
-		//install a resource listener in order to pick up changes in deep files automatically
+		// install a resource listener in order to pick up changes in deep files
+		// automatically
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(resourceChangeListener);
 	}
 
@@ -150,8 +157,6 @@ public class DeepPlugin extends AbstractUIPlugin {
 	 */
 	public void stop(BundleContext context) throws Exception {
 		super.stop(context);
-		
-		StdStreams.vrb.println("stopping plugin");
 
 		plugin = null;
 		resourceBundle = null;
@@ -191,11 +196,11 @@ public class DeepPlugin extends AbstractUIPlugin {
 		}
 		return resourceBundle;
 	}
-	
-	
+
 	/**
 	 * Return a <code>java.io.File</code> object that corresponds to the specified
 	 * <code>IPath</code> in the plugin directory, or <code>null</code> if none.
+	 * Return a <code>java.io.File</code> object that corresponds to the
 	 */
 	public static File getFileInPlugin(String relPath) {
 		try {
@@ -230,7 +235,8 @@ public class DeepPlugin extends AbstractUIPlugin {
 
 	private static final String DEEP_CLASSPATH_KEY_ATTR = "deepPlatformLibrary";
 
-	public static void updateClasspath(IProject project, String libpathStr, IProgressMonitor monitor) throws JavaModelException {
+	public static void updateClasspath(IProject project, String libpathStr, IProgressMonitor monitor)
+			throws JavaModelException {
 		if (libpathStr == null)
 			libpathStr = getDefault().getPreferenceStore().getString(PreferenceConstants.DEFAULT_LIBRARY_PATH);
 
@@ -259,8 +265,7 @@ public class DeepPlugin extends AbstractUIPlugin {
 				if (matches)
 					classpathIt.remove();// remove duplicate entries
 			}
-			IClasspathEntry classpathEntry = JavaCore.newLibraryEntry(
-					binPath, // binaries
+			IClasspathEntry classpathEntry = JavaCore.newLibraryEntry(binPath, // binaries
 					srcPath, // sources
 					null, // source root
 					new IAccessRule[] {},
@@ -273,41 +278,187 @@ public class DeepPlugin extends AbstractUIPlugin {
 	}
 
 	private IResourceChangeListener resourceChangeListener = new IResourceChangeListener() {
-		public void resourceChanged(IResourceChangeEvent event) {
-			final IResourceDelta changes;
-
-			if (event.getType() != IResourceChangeEvent.POST_CHANGE)
-				return;
-			changes = event.getDelta();
+		public void resourceChanged(final IResourceChangeEvent event) {
+			final IResourceDelta changes = event.getDelta();
 			if (changes == null)
 				return;
 
+			if(DEBUG)
+				try {
+					final String type;
+					final String buildKind;
+					
+					switch (event.getType()) {
+					case IResourceChangeEvent.POST_CHANGE:
+						type = "POST_CHANGE";
+						break;
+					case IResourceChangeEvent.POST_BUILD:
+						type = "POST_BUILD";
+						break;
+					case IResourceChangeEvent.PRE_BUILD:
+						type = "PRE_BUILD";
+						break;
+					case IResourceChangeEvent.PRE_CLOSE:
+						type = "PRE_CLOSE";
+						break;
+					case IResourceChangeEvent.PRE_DELETE:
+						type = "PRE_DELETE";
+						break;
+					case IResourceChangeEvent.PRE_REFRESH:
+						type = "PRE_REFRESH";
+						break;
+					default:
+						type = "unknown(" + event.getType() + ")";
+						break;
+					}
+
+					switch (event.getBuildKind()) {
+					case IncrementalProjectBuilder.AUTO_BUILD:
+						buildKind = "AUTO_BUILD";
+						break;
+					case IncrementalProjectBuilder.FULL_BUILD:
+						buildKind = "FULL_BUILD";
+						break;
+					case IncrementalProjectBuilder.INCREMENTAL_BUILD:
+						buildKind = "INCREMENTAL_BUILD";
+						break;
+					case IncrementalProjectBuilder.CLEAN_BUILD:
+						buildKind = "CLEAN_BUILD";
+						break;
+					default:
+						buildKind = "unknown(" + event.getBuildKind() + ")";
+						break;
+					}
+	
+					changes.accept(new IResourceDeltaVisitor() {
+						@Override
+						public boolean visit(IResourceDelta delta) throws CoreException {
+							final int flags = delta.getFlags();
+
+							List<String> flagNames = new ArrayList<String>();
+							String kind;
+
+							switch (delta.getKind()) {
+							case IResourceDelta.ADDED:
+								kind = "ADDED";
+								break;
+							case IResourceDelta.REMOVED:
+								kind = "REMOVED";
+								break;
+							case IResourceDelta.CHANGED:
+								kind = "CHANGED";
+								break;
+							case IResourceDelta.ADDED_PHANTOM:
+								kind = "ADDED_PHANTOM";
+								break;
+							case IResourceDelta.REMOVED_PHANTOM:
+								kind = "REMOVED_PHANTOM";
+								break;
+							default:
+								kind = "unknown(" + changes.getKind() + ")";
+								break;
+							}
+	
+							if ((flags & IResourceDelta.CONTENT) != 0)
+								flagNames.add("CONTENT");
+							if ((flags & IResourceDelta.DERIVED_CHANGED) != 0)
+								flagNames.add("DERIVED_CHANGED");
+							if ((flags & IResourceDelta.DESCRIPTION) != 0)
+								flagNames.add("DESCRIPTION");
+							if ((flags & IResourceDelta.ENCODING) != 0)
+								flagNames.add("ENCODING");
+							if ((flags & IResourceDelta.LOCAL_CHANGED) != 0)
+								flagNames.add("LOCAL_CHANGED");
+							if ((flags & IResourceDelta.OPEN) != 0)
+								flagNames.add("OPEN");
+							if ((flags & IResourceDelta.MOVED_TO) != 0)
+								flagNames.add("MOVED_TO");
+							if ((flags & IResourceDelta.MOVED_FROM) != 0)
+								flagNames.add("MOVED_FROM");
+							if ((flags & IResourceDelta.COPIED_FROM) != 0)
+								flagNames.add("COPIED_FROM");
+							if ((flags & IResourceDelta.TYPE) != 0)
+								flagNames.add("TYPE");
+							if ((flags & IResourceDelta.SYNC) != 0)
+								flagNames.add("SYNC");
+							if ((flags & IResourceDelta.MARKERS) != 0)
+								flagNames.add("MARKERS");
+							if ((flags & IResourceDelta.REPLACED) != 0)
+								flagNames.add("REPLACED");
+	
+							StdStreams.err.println("entry " + buildKind + " / " + type + " / " + flagNames + " / " + kind
+									+ ": " + delta.getFullPath());
+							return true;
+						}
+					});
+				} catch (CoreException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+
 			try {
+				final Set<IResource> deepFiles = new LinkedHashSet<IResource>();
+
 				changes.accept(new IResourceDeltaVisitor() {
 					@Override
 					public boolean visit(IResourceDelta delta) throws CoreException {
 						try {
 							IResource resource = delta.getResource();
-							if (resource == null)
-								return true;
-							if (resource.getType() != IResource.FILE)
-								return true;
+							if (resource != null) {
+								switch (resource.getType()) {
+								case IResource.PROJECT:
+									if ((delta.getFlags() & IResourceDelta.OPEN) != 0) {
+										IProject project = resource.getProject();
+										if(project == null)
+											return false;
+										IProjectNature projectNature = project.getNature(DeepNature.NATURE_ID);
+										if(projectNature == null)
+											return false;
 
-							if ("deep".equalsIgnoreCase(resource.getFileExtension())) {
-								StdStreams.vrb.println("resource changed: " + resource.getRawLocation());
+										IFile deepFile = resource.getProject().getFile(project.getName() + ".deep");
+										if (deepFile.exists()) {
+											deepFiles.add(deepFile);
+											StdStreams.vrb.println(
+													"updating from default deep file: " + resource.getRawLocation());
+										}
+									}
+									return true;
+								case IResource.FILE:
+									if ((delta.getFlags() & IResourceDelta.CONTENT) != 0) {
+										if ("deep".equalsIgnoreCase(resource.getFileExtension())) {
 
-								DeepConfigurationJob job = new DeepConfigurationJob(resource);
-								job.setPriority(Job.BUILD);
-								job.schedule();
+											IProject project = resource.getProject();
+											if (project == null)
+												return false;
+											IProjectNature projectNature = project.getNature(DeepNature.NATURE_ID);
+											if (projectNature == null)
+												return false;
+
+											deepFiles.add(resource);
+											StdStreams.vrb
+													.println("updating configuration using deep file: " + resource.getRawLocation());
+										}
+									}
+									return false;
+								}
 							}
 						} catch (Exception e) {
 							// TODO proper exception handling in
 							// DeepFileChanger, etc.
 							e.printStackTrace();
+							return false;
 						}
 						return true;
 					}
 				});
+
+				for (IResource deepFile : deepFiles) {
+
+					DeepConfigurationJob job = new DeepConfigurationJob(deepFile);
+					job.setPriority(Job.BUILD);
+					job.schedule();
+				}
+
 			} catch (Exception e) {
 				// TODO proper exception handling
 				e.printStackTrace();
