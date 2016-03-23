@@ -63,7 +63,8 @@ public class ItemStub extends Item {
 				if (interfaces != null) item = checkInterfacesForField(interfaces);
 			}
 		}
-		if (enAssertion) assert item != null: "stub of " + name + " not found";
+		if (item == null)
+			throw new RuntimeException("stub of " + name + " not found");
 		item.accAndPropFlags |= this.accAndPropFlags;
 		return item;
 	}
